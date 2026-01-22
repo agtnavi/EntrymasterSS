@@ -74,7 +74,7 @@ function addSama(name) {
 /**
  * メイン処理
  */
-function generateCompanySpecificEmailsWithConfirmation() {
+function main_generateCompanySpecificEmailsWithConfirmation() {
   console.log('▼▼▼ 処理開始 ▼▼▼');
   const ui = SpreadsheetApp.getUi();
 

@@ -8,6 +8,6 @@ function onOpen() {
     //     .addItem('マスタ⇒加工データ', 'performAGTReconciliation_MasterToProcessed')
     //     .addItem('加工データ⇒マスタ', 'performAGTReconciliation_ProcessedToMaster'))
     .addSubMenu(ui.createMenu('翌日面談連絡')
-        .addItem('翌日面談連絡メール送付', 'generateCompanySpecificEmailsWithConfirmation'))
+        .addItem('翌日面談連絡メール送付', 'main_generateCompanySpecificEmailsWithConfirmation'))
     .addToUi();
 }

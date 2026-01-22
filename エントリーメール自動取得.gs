@@ -58,7 +58,8 @@ function processEmailGroup(query, extractionCallback) {
   });
 
   if (newData.length > 0) {
-    saveDataToSheet7(newData);
+    // 関数名を変更して呼び出し
+    saveEntryDataToSheet(newData);
   } else {
     console.log("抽出対象のデータはありませんでした。");
   }
@@ -66,9 +67,9 @@ function processEmailGroup(query, extractionCallback) {
 
 /**
  * 「シート7」に書き込む関数
- * ★修正点: A,B,C,E列を上書きしないよう、書き込みを2分割しました
+ * 機能: 重複チェック機能付き（直前のデータと同じ電話番号ならスキップ）
  */
-function saveDataToSheet7(data) {
+function saveEntryDataToSheet(data) {
   const targetSheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(GET_MAIL_CONFIG.SHEET_NAME);
   
   if (!targetSheet) {
@@ -76,16 +77,56 @@ function saveDataToSheet7(data) {
     return;
   }
 
-  // D列(4列目)を見て最終行を判定
+  // --- ▼▼▼ 重複チェックロジック開始 ▼▼▼ ---
+  
+  // 1. シート上の最新の電話番号を取得（K列=11列目と仮定）
+  const lastRowK = getLastRowInColumn(targetSheet, 11); 
+  let lastPhoneOnSheet = "";
+  if (lastRowK > 0) {
+    // 数式(=TEXT...)が入っている可能性があるため getFormula と getValue 両方を考慮
+    const cell = targetSheet.getRange(lastRowK, 11);
+    lastPhoneOnSheet = cell.getFormula() || cell.getValue();
+  }
+
+  const filteredData = [];
+  // 比較用に「直前の有効な電話番号」を保持する変数（初期値はシートの最終行）
+  let previousPhone = lastPhoneOnSheet;
+
+  data.forEach(row => {
+    // parseEmailBodyの返り値配列で、電話番号は index 4
+    const currentPhone = row[4]; 
+
+    // 数字だけで比較して、同じならスキップ
+    if (isSamePhone(previousPhone, currentPhone)) {
+      console.log(`[重複スキップ] 電話番号が直前のデータと一致したため除外しました: ${row[2]} (${currentPhone})`);
+    } else {
+      // 重複していない場合のみリストに追加し、比較対象を更新
+      filteredData.push(row);
+      previousPhone = currentPhone;
+    }
+  });
+
+  // 重複を除いた結果、書き込むデータがなくなったら終了
+  if (filteredData.length === 0) {
+    console.log("重複を除去した結果、追加すべきデータはありませんでした。");
+    return;
+  }
+  
+  // 書き込み対象をフィルタ後のデータに差し替え
+  const dataToWrite = filteredData;
+  // --- ▲▲▲ 重複チェックロジック終了 ▲▲▲ ---
+
+
+  // D列(4列目)を見て書き込み開始行を判定
   const lastRowWithData = getLastRowInColumn(targetSheet, 4); 
   const startRow = lastRowWithData === 0 ? 1 : lastRowWithData + 1;
 
   // 1. 【D列】のデータを作成（日付＆時間）
-  const dataForColD = data.map(row => [`${row[0]} ${row[1]}`]);
+  const dataForColD = dataToWrite.map(row => [`${row[0]} ${row[1]}`]);
 
   // 2. 【F列以降】のデータを作成
   //    行番号が必要なため、map内で計算
-  const dataForColF_Onwards = data.map((row, index) => {
+  const dataForColF_Onwards = dataToWrite.map((row, index) => {
     return createRowFromF(row, startRow + index);
   });
 
@@ -96,7 +137,7 @@ function saveDataToSheet7(data) {
   // (2) F列 (6列目) 以降に書き込み
   targetSheet.getRange(startRow, 6, dataForColF_Onwards.length, dataForColF_Onwards[0].length).setValues(dataForColF_Onwards);
 
-  console.log(`「${GET_MAIL_CONFIG.SHEET_NAME}」の ${startRow} 行目に ${data.length} 件追加しました。（A-C, E列は保持）`);
+  console.log(`「${GET_MAIL_CONFIG.SHEET_NAME}」の ${startRow} 行目に ${dataToWrite.length} 件追加しました。（A-C, E列は保持）`);
 }
 
 /**
@@ -154,6 +195,19 @@ function getLastRowInColumn(sheet, columnNumber) {
     }
   }
   return 0;
+}
+
+/**
+ * 電話番号比較用ヘルパー関数
+ * 数式(=TEXT...)やハイフン等の違いを無視して、数字のみで一致判定を行う
+ */
+function isSamePhone(val1, val2) {
+  if (!val1 || !val2) return false;
+  // 文字列化して、数字以外を全て削除
+  const num1 = String(val1).replace(/[^0-9]/g, "");
+  const num2 = String(val2).replace(/[^0-9]/g, "");
+  
+  return num1 !== "" && num1 === num2;
 }
 
 /* ==========================================
