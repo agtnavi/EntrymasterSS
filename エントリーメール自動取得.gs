@@ -86,6 +86,7 @@ function saveEntryDataToSheet(data) {
     // 数式(=TEXT...)が入っている可能性があるため getFormula と getValue 両方を考慮
     const cell = targetSheet.getRange(lastRowK, 11);
     lastPhoneOnSheet = cell.getFormula() || cell.getValue();
+    console.log("最終行の電話番号は"+lastPhoneOnSheet)
   }
 
   const filteredData = [];
@@ -183,18 +184,29 @@ function createRowFromF(row, rowIndex) {
 }
 
 /**
- * 指定列の最終データ行を取得
+ * 指定列の最終データ行を取得（Direction版）
  */
 function getLastRowInColumn(sheet, columnNumber) {
-  const lastRow = sheet.getLastRow();
-  if (lastRow === 0) return 0;
-  const values = sheet.getRange(1, columnNumber, lastRow, 1).getValues();
-  for (let i = values.length - 1; i >= 0; i--) {
-    if (values[i][0] !== "" && values[i][0] != null) {
-      return i + 1;
-    }
+  // シートの最大行数を取得
+  const maxRows = sheet.getMaxRows();
+  
+  // その列の最終行が既に埋まっている場合のガード（稀なケースですが念のため）
+  if (sheet.getRange(maxRows, columnNumber).getValue() !== "") {
+    return maxRows;
   }
-  return 0;
+
+  // 一番下の行から上に向かって検索 (Ctrl + ↑)
+  const lastRow = sheet.getRange(maxRows, columnNumber)
+                       .getNextDataCell(SpreadsheetApp.Direction.UP)
+                       .getRow();
+
+  // データが1つもない場合、Direction.UPは「1」を返す仕様があるため、
+  // 1行目が本当にデータ入りかチェックして、空白なら0を返す
+  if (lastRow === 1 && sheet.getRange(1, columnNumber).isBlank()) {
+    return 0;
+  }
+
+  return lastRow;
 }
 
 /**
@@ -202,6 +214,7 @@ function getLastRowInColumn(sheet, columnNumber) {
  * 数式(=TEXT...)やハイフン等の違いを無視して、数字のみで一致判定を行う
  */
 function isSamePhone(val1, val2) {
+  console.log(`【${val1}】と【${val2}】を比較`)
   if (!val1 || !val2) return false;
   // 文字列化して、数字以外を全て削除
   const num1 = String(val1).replace(/[^0-9]/g, "");
