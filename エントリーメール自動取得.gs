@@ -8,11 +8,11 @@ const GET_MAIL_CONFIG = {
   // ★ false: 本番モード（処理後に既読化・アーカイブする）
   IS_TEST_MODE: false, 
 
-  SHEET_NAME: "テスト中メール自動取得", 
+  SHEET_NAME: "求職者管理", 
   
   SEARCH: {
     AGENT_NAVI: 'is:unread from:agentnavi@circus-group.jp subject:"[自動送信 | 転職エージェントナビ ]" AND "自動送信" newer_than:2d',
-    FB_LEAD: 'is:unread subject:FBリードからお問い合わせがありました newer_than:2d'
+    FB_LEAD: 'is:unread subject:FBリードからお問い合わせがありました newer_than:1d'
   }
 };
 
