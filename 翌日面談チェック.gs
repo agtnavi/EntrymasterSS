@@ -186,6 +186,18 @@ function main_generateCompanySpecificEmailsWithConfirmation() {
 本日お送りしたリマインドメッセージへの反応が無く、面談へご参加されない可能性がございます。
 ただ候補者様へ面談のご案内自体は行っているため、恐れ入りますがご入室を頂きます様、` : '';
 
+    const footerNote_v2 = containsNote ? 
+      `------------------------
+【ご案内事項】
+・「※」表記の候補者様について
+本日お送りしたリマインドへの反応がなく、欠席の可能性がございます。
+案内自体は完了しておりますので、恐れ入りますが定刻でのご入室をお願いいたします。
+
+・変更・追加について
+本メール送付後に変更・追加が発生した場合は、別途、通常時の連絡手段にて随時ご連絡差し上げます。
+------------------------` : '';
+
+
     const message = `${addSama(companyName)}
 ご担当者 各位
 
@@ -199,6 +211,23 @@ ${footerNote}
 引き続き何卒よろしくお願いいたします。
 
 転職エージェントナビ`;
+
+    const message_v2 = `${addSama(companyName)}
+ご担当者 各位
+
+いつもお世話になっております。
+転職エージェントナビでございます。
+
+明日実施予定の面談案件一覧を、現時点で確定している内容にてお送りいたします。
+※本メールはシステムより自動配信しております。
+
+${interviewList}
+${footerNote}
+引き続き何卒よろしくお願いいたします。
+
+転職エージェントナビ`;
+
+
     
     const recipientList = emailMap[companyName];
     const recipients = recipientList ? recipientList.join(',') : '';
@@ -206,6 +235,8 @@ ${footerNote}
     if (recipients) {
       console.log(`【宛先確認】To: ${recipients}`);
       const subject = `【転職エージェントナビ】明日の面談のご連絡`;
+      const subject_v2 = `【転職エージェントナビ】明日の面談のご連絡（自動配信）`;
+      
       
       const response = ui.alert('メール送信の最終確認', `以下のメールを送信しますか？\n\n------------------------------------------------------\n■宛先 (To):\n${recipients}\n■宛先 (CC):\n${cc}}\n\n■件名 (Subject):\n${subject}\n\n■本文プレビュー:\n${message.substring(0, 400)}...\n------------------------------------------------------`, ui.ButtonSet.YES_NO);
 
