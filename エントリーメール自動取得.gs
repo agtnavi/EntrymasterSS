@@ -161,8 +161,10 @@ function createRowFromF(row, rowIndex) {
   // F列用数式
   const formulaF = `=IFERROR(VLOOKUP(AV${rowIndex},'パートナーID・メディアIDリスト'!$D$1:$G$99,4,0))`;
 
-  // P列(16)〜AV列(48)の間を埋める空白 (Q〜AU = 31列分)
-  const gapColumns = Array(31).fill(""); 
+  // S列(19)〜AD列(30)の間を埋める空白 (S〜AD = 12列分)
+  const gapColumns = Array(12).fill(""); 
+  // AF列(32)〜AU列(47)の間を埋める空白 (AF〜AU = 16列分)
+  const gapColumns2 = Array(16).fill(""); 
 
   return [
     formulaF,            // F: 集客経路 (数式)
@@ -176,7 +178,11 @@ function createRowFromF(row, rowIndex) {
     "",                  // N: 性別
     "",                  // O: (空白)
     finalRemarks,        // P: remarks 備考
-    ...gapColumns,       // Q 〜 AU: 空白埋め
+    "未",                //Q:未
+    "未",                //R:未
+    ...gapColumns,       // S 〜 AD: 空白埋め
+    "自動・初回メール",    //AE:自動・初回メール
+    ...gapColumns2,       // AF 〜 AU: 空白埋め
     subject,             // AV: LP/流入元
     sender,              // AW: 送信元
     msgId                // AX: MessageID
