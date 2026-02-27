@@ -7,6 +7,6 @@ function onOpen() {
     .addSubMenu(ui.createMenu('開発中：翌日面談連絡【ナビ】')
         .addItem('開発中', 'manual_sendNaviRemindEmails'))
     .addSubMenu(ui.createMenu('翌日面談連絡')
-        .addItem('翌日面談連絡メール送付', 'main_generateCompanySpecificEmailsWithConfirmation'))
+        .addItem('翌日面談連絡メール送付', 'manual_generateAgtRemindEmails'))
     .addToUi();
 }
