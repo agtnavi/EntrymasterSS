@@ -8,7 +8,9 @@ const NAVI_EMAIL_MAP = {
   '浅富さん': 'naomi600143@gmail.com',
   '中村さん': 'hitomi10321107@gmail.com',
   '千田さん': 'shuntaro8710@gmail.com',
-  '瀬戸さん': 'k-seto@circus-group.jp'
+  '瀬戸さん': 'k-seto@circus-group.jp',
+  '新国さん':'a-nikkuni@circus-group.jp',
+  '國本さん':'y-kunimoto@circus-group.jp'
 };
 
 const CONFIG_NAVI = {
@@ -202,8 +204,8 @@ ${listText}
  * 実際のメール送信
  */
 function sendEmail(to, body) {
-  // GmailApp.sendEmail(to, "明日の面談リマインドのご連絡", body, {
-  //   name: "転職エージェントナビ事務局",
-  //   cc: CC_ADDRESS
-  // });
+  GmailApp.sendEmail(to, "明日の面談リマインドのご連絡", body, {
+    name: "転職エージェントナビ事務局",
+    cc: CC_ADDRESS
+  });
 }

@@ -21,7 +21,7 @@ const CONFIG = {
   }
 };
 
-const CC_ADDRESS = "agentnavi@circus-group.jp";
+const CC_ADDRESS_agt = "agentnavi@circus-group.jp";
 
 // ==========================================================
 // 1. エントリーポイント
@@ -42,7 +42,7 @@ function manual_generateAgtRemindEmails() {
         ui.ButtonSet.YES_NO
       );
       if (response == ui.Button.YES) {
-        sendEmail(recipients, subject, message);
+        sendEmail_agt(recipients, subject, message);
         return `【送信完了】${companyName}`;
       }
       return `【スキップ】${companyName}`;
@@ -62,7 +62,7 @@ function auto_generateAgtRemindEmails() {
     isAuto: true,
     sendLogic: (companyName, recipients, subject, message) => {
       try {
-        sendEmail(recipients, subject, message);
+        sendEmail_agt(recipients, subject, message);
         console.info(`✅ 送信成功: ${companyName} (${recipients})`);
         successCount++;
       } catch (e) {
@@ -206,10 +206,10 @@ ${footerNote}
   return { subject, message };
 }
 
-function sendEmail(to, subject, body) {
+function sendEmail_agt(to, subject, body) {
   GmailApp.sendEmail(to, subject, body, {
     name: "転職エージェントナビ事務局",
-    cc: CC_ADDRESS
+    cc: CC_ADDRESS_agt
   });
 }
 
