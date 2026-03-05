@@ -11,7 +11,7 @@ const MAPPING_SHEET_CONFIG = {
 const CONFIG = {
   SHEET_NAME: '翌日AGT面談リマインド',
   COLUMN_INDICES: {
-    COMPANY_NAME: 9,      // J列
+    COMPANY_NAME: 0,      // J列->A列に修正
     CONTACT_PERSON: 8,    // I列
     INTERVIEW_DATE: 2,    // C列
     CANDIDATE_ID: 3,      // D列
@@ -189,8 +189,7 @@ function generateMailContent(companyName, companyObj, isAuto) {
 
   const autoDisclaimer = isAuto ? `※本メールはシステムより自動配信しております。\n` : '';
 
-  const message = `${addSama(companyName)}
-ご担当者 各位
+  const message = `${companyName} 御中
 
 いつもお世話になっております。
 転職エージェントナビでございます。
