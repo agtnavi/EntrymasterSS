@@ -91,7 +91,7 @@ function updateDestSheet(sheet, targetDate, values, columns) {
       if (rowDateStr === targetDateStr) {
         // 見つかった行の指定列に値を書き込む
         values.forEach((val, index) => {
-          //sheet.getRange(i + 1, columns[index]).setValue(val);
+          sheet.getRange(i + 1, columns[index]).setValue(val);
           console.log(`シート名${sheet.getName()}${i+1}行目の${columns[index]}列に${val}を追加しました`)
         });
         return;
