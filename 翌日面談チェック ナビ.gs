@@ -163,10 +163,17 @@ function groupDataByNavi(data, dateStr) {
     if (Utilities.formatDate(timeValue, 'JST', 'yyyy/MM/dd') !== dateStr) return;
 
     // 名前整形
-    let name = row[CONFIG_NAVI.COLUMN_INDICES.NAVI_NAME].toString()
-                .replace(/[【】]/g, '') // 【】を消す
-                .replace(/し$/, '')     // 佐藤し 対策
-                .trim();
+    // let name = row[CONFIG_NAVI.COLUMN_INDICES.NAVI_NAME].toString()
+    //             .replace(/[【】]/g, '') // 【】を消す
+    //             .replace(/し$/, '')     // 佐藤し 対策
+    //             .trim();
+    // --- 修正後の名前整形ロジック ---
+        let name = row[CONFIG_NAVI.COLUMN_INDICES.NAVI_NAME].toString()
+                    .replace(/[【】]/g, '')   // 1. カッコを消す → "佐藤しさん"
+                    .replace(/さん$/, '')     // 2. 先に「さん」を消す → "佐藤し"
+                    .replace(/し$/, '')       // 3. その後で末尾の「し」を消す → "佐藤"
+                    .trim();                  // 4. 余計な空白を掃除
+    // ----------------------------
     
     if (!name) return;
     if (!map[name]) map[name] = [];

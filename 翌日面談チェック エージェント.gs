@@ -4,7 +4,7 @@
 const MAPPING_SHEET_CONFIG = {
   ID: '1aoSL_C-nmYdFJN7tysdREva81ByuXN3WX1rGdXfN_kM',
   SHEET_NAME: '新規既存結合',
-  COMPANY_COL_INDEX: 3, // D列
+  COMPANY_COL_INDEX: 4, // D列->E列（”株式会社”ありに改良）
   EMAIL_COL_INDEX: 2    // C列
 };
 
