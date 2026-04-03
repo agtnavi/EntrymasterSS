@@ -9,4 +9,8 @@ function onOpen() {
     .addSubMenu(ui.createMenu('翌日面談連絡')
         .addItem('翌日面談連絡メール送付', 'manual_generateAgtRemindEmails'))
     .addToUi();
+  ui.createMenu("📄 PDF生成")
+    .addItem("選択行のPDFを手動生成", "generatePdfManual")
+    .addItem("使い方", "showHelp")
+    .addToUi();
 }
