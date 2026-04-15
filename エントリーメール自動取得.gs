@@ -1,4 +1,6 @@
+//20260415その回の重複なのか、以前の重複なのかで扱いを変える
 //20260415重複検索範囲を全ての行に拡大
+
 /**
  * ==========================================
  * 設定エリア
@@ -80,6 +82,12 @@ function processEmailGroup(query, extractionCallback) {
 /**
  * データをシートに書き込む（重複チェック機能付き）
  */
+/**
+ * データをシートに書き込む
+ * ロジック:
+ * 1. 同一実行内の重複（バグ） -> シートに書き込まずスキップ
+ * 2. 過去データとの重複（再入会） -> H列に「重複」と記載して書き込む
+ */
 function saveEntryDataToSheet(data) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(GET_MAIL_CONFIG.SHEET_NAME);
   if (!sheet) {
@@ -87,54 +95,66 @@ function saveEntryDataToSheet(data) {
     return;
   }
 
-  // --- 1. 既存データをスキャン（高速チェック用リスト作成） ---
+  // --- 1. 【過去データ】の読込（再入会判定用） ---
   const allValues = sheet.getDataRange().getValues();
-  const existingPhones = new Set();
-  const existingEmails = new Set();
+  const historicalPhones = new Set();
+  const historicalEmails = new Set();
 
   allValues.forEach((row, i) => {
-    if (i === 0) return; // ヘッダー飛ばし
-    
-    // 電話番号は数字以外を除去して保存
+    if (i === 0) return; // ヘッダー
     const p = String(row[GET_MAIL_CONFIG.COL.PHONE] || "").replace(/[^0-9]/g, "");
-    // メールは空白除去と小文字化
     const e = String(row[GET_MAIL_CONFIG.COL.EMAIL] || "").trim().toLowerCase();
-
-    if (p) existingPhones.add(p);
-    if (e) existingEmails.add(e);
+    if (p) historicalPhones.add(p);
+    if (e) historicalEmails.add(e);
   });
 
-  // --- 2. 新規データの重複判定 ---
-  const processedData = data.map(row => {
-    const newPhoneClean = String(row[4] || "").replace(/[^0-9]/g, ""); // 新着TEL
-    const newEmail = String(row[5] || "").trim().toLowerCase();        // 新着Mail
+  // --- 2. 【今回の実行データ】の選別 ---
+  const batchPhones = new Set();
+  const batchEmails = new Set();
+  const finalDataToWrite = [];
 
-    // 既存リストにTELまたはMailが含まれているかチェック
-    if (existingPhones.has(newPhoneClean) || existingEmails.has(newEmail)) {
-      row[GET_MAIL_CONFIG.COL.NEXT_ACTION] = "重複";
-      console.log(`[重複検知] ${row[2]} 様`);
+  data.forEach(row => {
+    const newPhoneClean = String(row[4] || "").replace(/[^0-9]/g, "");
+    const newEmail = String(row[5] || "").trim().toLowerCase();
+
+    // A. 同一バッチ内の重複チェック（バグ対策：書き込まない）
+    if (batchPhones.has(newPhoneClean) || batchEmails.has(newEmail)) {
+      console.log(`[同一バッチ重複スキップ] ${row[2]} 様（システム重複のため除外）`);
+      return; // この行の処理を飛ばす
     }
 
-    // このバッチ内で同じ人が連続して送ってきた場合も検知できるよう、今のデータもセットに追加
-    if (newPhoneClean) existingPhones.add(newPhoneClean);
-    if (newEmail) existingEmails.add(newEmail);
+    // B. 過去データとの重複チェック（再入会対策：書き込むが「重複」ラベル付与）
+    if (historicalPhones.has(newPhoneClean) || historicalEmails.has(newEmail)) {
+      row[GET_MAIL_CONFIG.COL.NEXT_ACTION] = "重複";
+      console.log(`[過去データ重複検知] ${row[2]} 様（再入会として処理）`);
+    }
 
-    return row;
+    // 次のループ判定のために、今回の処理済みリストに追加
+    if (newPhoneClean) batchPhones.add(newPhoneClean);
+    if (newEmail) batchEmails.add(newEmail);
+    
+    finalDataToWrite.push(row);
   });
+
+  // 書き込むべきデータがゼロなら終了
+  if (finalDataToWrite.length === 0) {
+    console.log("書き込み対象の新規データはありませんでした。");
+    return;
+  }
 
   // --- 3. 書き込み処理 ---
   const lastRow = getLastRowInColumn(sheet, GET_MAIL_CONFIG.COL.ID_BASE);
   const startRow = lastRow === 0 ? 1 : lastRow + 1;
 
-  // D列用（日付＆時間）
-  const dataForColD = processedData.map(row => [`${row[0]} ${row[1]}`]);
+  // D列用
+  const dataForColD = finalDataToWrite.map(row => [`${row[0]} ${row[1]}`]);
   // F列以降用
-  const dataForColF = processedData.map((row, index) => createRowFromF(row, startRow + index));
+  const dataForColF = finalDataToWrite.map((row, index) => createRowFromF(row, startRow + index));
 
   sheet.getRange(startRow, 4, dataForColD.length, 1).setValues(dataForColD);
   sheet.getRange(startRow, 6, dataForColF.length, dataForColF[0].length).setValues(dataForColF);
 
-  console.log(`${processedData.length} 件のデータを保存しました。`);
+  console.log(`${finalDataToWrite.length} 件のデータを保存しました。`);
 }
 
 /**
