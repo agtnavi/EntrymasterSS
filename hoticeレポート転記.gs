@@ -1,3 +1,4 @@
+//20260417男女判定にAV列を追加
 /**
  * 定期実行用のメイン関数
  */
@@ -33,25 +34,39 @@ function main_aggregateJobSeekerData() {
     const gender = row[13];        // N列: 性別
     const interviewDate1 = row[18]; // S列: 個別面談日時
     const interviewDate2 = row[24]; // Y列: ナビ面談日時
+    const lpcode = row[47] //AV列LP
 
     // 日付形式のチェックと変換
     if (!entryDateValue) return;
     const entryDate = new Date(entryDateValue);
     const entryDateStr = Utilities.formatDate(entryDate, "JST", "yyyy-MM-dd");
 
-    // 条件判定: 
+// 条件判定: 
     // ①エントリー日が昨日 
     // ②集客経路が "hotice" 
     // ③ネクストアクションが "重複" 以外
     if (entryDateStr === yesterdayStr && channel === "hotice" && nextAction !== "重複") {
       
-      // 性別の集計
-      if (gender === "男性") {
-        countMale++;
-      } else if (gender === "女性") {
+      const avValue = String(lpcode || ""); // AV列（インデックス47）の値を取得し文字列化
+      
+      // --- 性別の集計ロジック修正 ---
+      // 1. AV列に "women" が含まれるか
+      if (avValue.includes("women")) {
         countFemale++;
-      } else {
-        countOtherGender++;
+      } 
+      // 2. AV列に "men" が含まれるか（womenを先に判定しているので、ここは純粋にmenのみが通る）
+      else if (avValue.includes("men")) {
+        countMale++;
+      } 
+      // 3. どちらも含まれない場合は N列（gender）で判断
+      else {
+        if (gender === "男性") {
+          countMale++;
+        } else if (gender === "女性") {
+          countFemale++;
+        } else {
+          countOtherGender++;
+        }
       }
 
       // 面談予約の集計（S列またはY列に値がある場合）
