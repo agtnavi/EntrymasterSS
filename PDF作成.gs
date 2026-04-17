@@ -1,5 +1,5 @@
 //20260417　onEditTriggerを廃止しexecuteFromAppSheetを新設
-//→https://script.google.com/home/projects/1p2nfN7OJ9eRt4HJAduiScAXYy_B8_kEaBQE9oIrKlwDOIx8xyTyDo-dV/edit こちらに行こう
+//→https://script.google.com/home/projects/1p2nfN7OJ9eRt4HJAduiScAXYy_B8_kEaBQE9oIrKlwDOIx8xyTyDo-dV/edit こちらに以降
 /**
  * リリース時は★部分を修正
  */
