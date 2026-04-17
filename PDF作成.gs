@@ -1,3 +1,5 @@
+//20260417　onEditTriggerを廃止しexecuteFromAppSheetを新設
+//→https://script.google.com/home/projects/1p2nfN7OJ9eRt4HJAduiScAXYy_B8_kEaBQE9oIrKlwDOIx8xyTyDo-dV/edit こちらに行こう
 /**
  * リリース時は★部分を修正
  */
@@ -25,8 +27,32 @@ const CFG = {
   // AGT_FOLDERS は削除し、シートから動的取得に変更
 };
 
+// ▼ 新しくこれを追加します ▼
 // ================================================================
-// トリガー：B列ステータスが「面談予約中」になったとき
+// AppSheetから呼び出されるメイン処理
+// ================================================================
+function executeFromAppSheet(rowNumber) {
+  console.log("AppSheetから起動しました。対象行: " + rowNumber);
+
+  // AppSheetから渡された行番号を使って、そのままPDF作成処理へ投げる
+  const result = generatePdf(rowNumber);
+
+  if (!result.success) {
+    // エラー時は今まで通りB列のセルにメモを追記する
+    const ss = SpreadsheetApp.openById(CFG.SPREADSHEET_ID);
+    ss.getSheetByName(CFG.MENDAN_SHEET)
+      .getRange(rowNumber, CFG.MENDAN_COL.STATUS)
+      .setNote(`❌ PDF生成エラー: ${result.error}`);
+    
+    console.error("エラーが発生しました: " + result.error);
+    return;
+  }
+
+  console.log("PDF生成成功: " + result.fileName);
+}
+
+// ================================================================
+// 【廃止】トリガー：B列ステータスが「面談予約中」になったとき
 // ================================================================
 function onEditTrigger(e) {
   var source = e.source
