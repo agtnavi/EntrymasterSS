@@ -1,5 +1,7 @@
+//20260424AKAHONの検索クエリを追加
 //20260415その回の重複なのか、以前の重複なのかで扱いを変える
 //20260415重複検索範囲を全ての行に拡大
+
 
 /**
  * ==========================================
@@ -14,10 +16,12 @@ const GET_MAIL_CONFIG = {
   SHEET_NAME: "求職者管理", // 書き込み先のシート名
   
   // 検索クエリの設定
-  SEARCH: {
-    AGENT_NAVI: 'is:unread from:agentnavi@circus-group.jp subject:"[自動送信 | 転職エージェントナビ ]" AND "自動送信" newer_than:2d',
-    FB_LEAD: 'is:unread subject:FBリードからお問い合わせがありました newer_than:1d'
-  },
+SEARCH: {
+  AGENT_NAVI: 'is:unread from:agentnavi@circus-group.jp subject:"[自動送信 | 転職エージェントナビ ]" AND "自動送信" newer_than:2d',
+  FB_LEAD: 'is:unread subject:FBリードからお問い合わせがありました newer_than:1d',
+  AKAHON: 'is:unread from:akahonmaster@jobakahon.com subject:"【転職アカホン】転職者情報をお送りします" newer_than:7d'
+},
+
 
   // 列の定義（0から数えたインデックス）
   COL: {
@@ -41,6 +45,10 @@ function main_getEntryMail() {
 
   console.log("--- FB Lead 取得中 ---");
   processEmailGroup(GET_MAIL_CONFIG.SEARCH.FB_LEAD, extractFbLeadData);
+
+  console.log("--- Akahon 取得中 ---");
+  processEmailGroup(GET_MAIL_CONFIG.SEARCH.AKAHON, extractAkahonData);
+
   
   console.log("=== 全工程 終了 ===");
 }
@@ -222,6 +230,41 @@ function extractFbLeadData(message) {
     furi: /【 お名前（フリガナ） 】\s*([\s\S]+?)\r?\n/
   });
 }
+function extractAkahonData(message) {
+  const body = toPlainText_(message);
+  const getVal = (regex) => {
+    const match = body.match(regex);
+    return match ? match[1].trim() : "";
+  };
+
+  const rawPhone = getVal(/■電話番号：\s*([\d\-()]+)/);
+  const birthday = getVal(/■生年月日：\s*([0-9\/]+)/);
+
+  return [
+    Utilities.formatDate(message.getDate(), "JST", "yyyy-MM-dd"),
+    Utilities.formatDate(message.getDate(), "JST", "HH:mm"),
+    getVal(/■お名前：\s*([\s\S]+?)\r?\n/),
+    getVal(/■ふりがな：\s*([\s\S]+?)\r?\n/),
+    rawPhone ? `=TEXT("${rawPhone}","0##########")` : "",
+    getVal(/■メールアドレス：\s*(\S+)/),
+    calculateAgeFromBirthday_(birthday),
+    "",
+    getVal(/■転職希望勤務地：\s*([\s\S]+?)\r?\n/),
+    [
+      formatAkahonRemarks_(body),
+      birthday ? `生年月日：${birthday}` : "",
+      getVal(/■性別：\s*([\s\S]+?)\r?\n/) ? `性別：${getVal(/■性別：\s*([\s\S]+?)\r?\n/)}` : "",
+      getVal(/最終学歴：\s*([\s\S]+?)\r?\n/) ? `最終学歴：${getVal(/最終学歴：\s*([\s\S]+?)\r?\n/)}` : "",
+      getVal(/■転職希望年収：\s*([\s\S]+?)\r?\n/) ? `転職希望年収：${getVal(/■転職希望年収：\s*([\s\S]+?)\r?\n/)}` : "",
+      getVal(/■転職経験回数：\s*([\s\S]+?)\r?\n/) ? `転職経験回数：${getVal(/■転職経験回数：\s*([\s\S]+?)\r?\n/)}` : ""
+    ].filter(Boolean).join("\n"),
+    message.getSubject(),
+    "akahonmaster@jobakahon.com",
+    message.getId()
+  ];
+}
+
+
 
 function parseEmailBody(message, patterns) {
   const body = message.getBody();
@@ -247,4 +290,37 @@ function parseEmailBody(message, patterns) {
     getVal(/送信元：\s*(\S+)/),
     message.getId()
   ];
+}
+function formatAkahonRemarks_(body) {
+  const address = (body.match(/■住所：\s*([\s\S]+?)\r?\n■電話番号：/) || [])[1] || "";
+  return address.trim() ? `住所：${address.trim()}` : "";
+}
+
+function calculateAgeFromBirthday_(birthday) {
+  if (!birthday) return "";
+
+  const normalized = birthday.replace(/\./g, "/").trim();
+  const parts = normalized.split("/");
+  if (parts.length !== 3) return "";
+
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  const day = Number(parts[2]);
+  if (!year || !month || !day) return "";
+
+  const today = new Date();
+  let age = today.getFullYear() - year;
+  const thisYearBirthday = new Date(today.getFullYear(), month - 1, day);
+  if (today < thisYearBirthday) age -= 1;
+  return age > 0 ? String(age) : "";
+}
+
+function toPlainText_(message) {
+  const plain = message.getPlainBody();
+  if (plain) return plain;
+  return message.getBody()
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ");
 }
