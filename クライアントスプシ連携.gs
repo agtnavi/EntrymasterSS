@@ -79,7 +79,12 @@ function normalizeName_(s) {
   t = t.replace(/　/g, ' ').replace(/\s+/g, '');
   return t.trim().toLowerCase();
 }
-
+function stripCompanyType_(name) {
+  var s = name.trim();
+  s = s.replace(/^(特定非営利活動法人|一般社団法人|公益社団法人|株式会社|合同会社|有限会社)/, '');
+  s = s.replace(/(株式会社|合同会社|有限会社)$/, '');
+  return s.trim();
+}
 /** AGT法人管理シートを読み、正規化キー → エントリ のマップを作る */
 function buildAgentDirectory_() {
   var ss = SpreadsheetApp.getActive();
@@ -101,6 +106,8 @@ function buildAgentDirectory_() {
     var entry = { rowIndex: r + 1, seishiki: seishiki, fileId: fileId };
 
     var keys = [seishiki];
+    var stripped = stripCompanyType_(seishiki);
+    if (stripped && stripped !== seishiki) keys.push(stripped);
     if (idx.call >= 0 && row[idx.call]) keys.push(String(row[idx.call]).trim());
     if (idx.alias >= 0 && row[idx.alias]) {
       String(row[idx.alias]).split(',').forEach(function(a){
