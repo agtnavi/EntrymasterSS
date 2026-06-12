@@ -1,4 +1,6 @@
 //20260609 クライアントスプシ連携を新設
+//20260612 タブの非表示関数を追加タブ名を修正
+
 /**
  * ===== AGT送客配信ツール（全コード1本まとめ・手貼り用） =====
  * 使い方:
@@ -21,7 +23,7 @@ var CONFIG_CLIENTSYNC = {
   LOG_SHEET: '配信ログ',                  // 同期結果ログ（GASが自動生成）
 
   // ── 各AGTファイル内に作る「出力タブ」名 ──
-  OUTPUT_TAB: '送客リスト（自動）',
+  OUTPUT_TAB: '[テスト開発中]送客リスト（自動）',
 
   // ── 同期間隔（時間トリガー） ──
   SYNC_INTERVAL_MIN: 5,
@@ -545,4 +547,26 @@ function dryRun() {
   });
   writeLog_(logs);
   SpreadsheetApp.getActive().toast('名寄せ確認 完了。「' + CONFIG_CLIENTSYNC.LOG_SHEET + '」シート確認');
+}
+
+
+/** 全AGTファイルのOUTPUT_TABを非表示にする（1回限り実行） */
+function hideOutputTabs() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(CONFIG_CLIENTSYNC.AGT_SHEET);
+  var values = sh.getDataRange().getValues();
+  var header = values[0];
+  var idx = headerIndexMap_(header, CONFIG_CLIENTSYNC.AGT_COLS);
+  
+  var done = 0, skipped = 0;
+  for (var r = 1; r < values.length; r++) {
+    var fileId = idx.fileId >= 0 ? String(values[r][idx.fileId] || '').trim() : '';
+    if (!fileId) continue;
+    try {
+      var ss = SpreadsheetApp.openById(fileId);
+      var tab = ss.getSheetByName(CONFIG_CLIENTSYNC.OUTPUT_TAB);
+      if (tab) { tab.hideSheet(); done++; }
+      else skipped++;
+    } catch(e) { skipped++; }
+  }
+  SpreadsheetApp.getActive().toast('非表示完了: ' + done + '件 / スキップ: ' + skipped + '件');
 }
