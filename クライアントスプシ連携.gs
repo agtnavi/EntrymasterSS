@@ -570,3 +570,24 @@ function hideOutputTabs() {
   }
   SpreadsheetApp.getActive().toast('非表示完了: ' + done + '件 / スキップ: ' + skipped + '件');
 }
+
+
+function showOutputTabs() {
+  var sh = SpreadsheetApp.getActive().getSheetByName(CONFIG_CLIENTSYNC.AGT_SHEET);
+  var values = sh.getDataRange().getValues();
+  var header = values[0];
+  var idx = headerIndexMap_(header, CONFIG_CLIENTSYNC.AGT_COLS);
+  
+  var done = 0, skipped = 0;
+  for (var r = 1; r < values.length; r++) {
+    var fileId = idx.fileId >= 0 ? String(values[r][idx.fileId] || '').trim() : '';
+    if (!fileId) continue;
+    try {
+      var ss = SpreadsheetApp.openById(fileId);
+      var tab = ss.getSheetByName(CONFIG_CLIENTSYNC.OUTPUT_TAB);
+      if (tab) { tab.showSheet(); done++; }
+      else skipped++;
+    } catch(e) { skipped++; }
+  }
+  SpreadsheetApp.getActive().toast('表示完了: ' + done + '件 / スキップ: ' + skipped + '件');
+}
