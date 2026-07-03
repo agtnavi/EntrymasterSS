@@ -1,3 +1,7 @@
+//https://gemini.google.com/app/c942a736af182446?hl=ja
+//20260627　連携対象外化した時に、PDFリンクを消す処理を追加（今までなかったらしい）
+//20260626　連携対象にクライアント名を追加（インシデント対応）・権限なしスプシをスキップするように・collectOutputFileIds_関数をいったん止めた
+//20260626　F列型修正など
 //20260609 クライアントスプシ連携を新設
 //20260612 タブの非表示関数を追加タブ名を修正
 
@@ -23,7 +27,7 @@ var CONFIG_CLIENTSYNC = {
   LOG_SHEET: '配信ログ',                  // 同期結果ログ（GASが自動生成）
 
   // ── 各AGTファイル内に作る「出力タブ」名 ──
-  OUTPUT_TAB: '[テスト開発中]送客リスト（自動）',
+  OUTPUT_TAB: '[新]進捗・面談実施シート',
 
   // ── 同期間隔（時間トリガー） ──
   SYNC_INTERVAL_MIN: 5,
@@ -61,11 +65,16 @@ var CONFIG_CLIENTSYNC = {
   GMAIL_SEARCH_MAX: 500,
 
   // ── 出力タブのレイアウト（左→右の表示列） ──
-  OUTPUT_HEADERS: ['頁番', '求職者No.', '求職者名', 'ご担当者', '金額', '面談日時', '候補者情報PDF', '状態', '送客ID'],
+  //OUTPUT_HEADERS: ['頁番', '求職者No.', '求職者名', 'ご担当者', '金額', '面談日時', '候補者情報PDF', '状態', '送客ID'],
+  // 👇【変更後】（「AGT会社名」をC列とD列の間に挿入）
+  OUTPUT_HEADERS: ['頁番', '求職者No.', '求職者名', 'AGT会社名', 'ご担当者', '金額', '面談日時', '候補者情報PDF', '状態', '送客ID'],
   STATE_ACTIVE:  '有効',
   STATE_INACTIVE:'対象外',
   COLOR_INACTIVE:'#d9d9d9',
-  COLOR_ACTIVE:  '#ffffff'
+  COLOR_ACTIVE:  '#ffffff',
+  DEACTIVATED_PDF_TEXT: '削除済み',  // 上書きする文字
+  COLOR_TEXT_DEACTIVATED: '#999999', // 対象外時の文字色（薄いグレー）
+  COLOR_TEXT_ACTIVE: '#000000'       // 通常時の文字色（黒）
 };
 
 
@@ -146,6 +155,8 @@ function extractAgentFromFilename_(fname) {
 
 /** 共有通知メールを走査し、出力先ファイルIDを法人管理「ファイルID」列にキャッシュ */
 function collectOutputFileIds_(dryRun) {
+  console.warn("この関数は利用停止中")
+  return
   var directory = buildAgentDirectory_();
 
   var q = '"' + CONFIG_CLIENTSYNC.SHARE_SUBJECT_KEYWORD + '"';
@@ -232,10 +243,17 @@ function headerIndexMap_(header, colNameMap) {
 function distributeToAgent_(fileId, matchedRows) {
   var ss = SpreadsheetApp.openById(fileId);
   var sh = ss.getSheetByName(CONFIG_CLIENTSYNC.OUTPUT_TAB) || createOutputTab_(ss);
+  sh.getRange("F:F").setNumberFormat("yyyy/MM/dd HH:mm");
 
-  var numCols = CONFIG_CLIENTSYNC.OUTPUT_HEADERS.length;
-  var idColIndex = numCols - 1;
-  var stateColIndex = numCols - 2;
+  var headers = CONFIG_CLIENTSYNC.OUTPUT_HEADERS;
+  var numCols = headers.length;
+  var idColIndex    = headers.indexOf('送客ID');
+  var stateColIndex = headers.indexOf('状態');
+  var pdfColIndex   = headers.indexOf('候補者情報PDF');
+
+  if (idColIndex < 0 || stateColIndex < 0 || pdfColIndex < 0) {
+    throw new Error('OUTPUT_HEADERS の設定に必要な列（送客ID、状態、候補者情報PDF）が含まれていません。');
+  }
 
   var lastRow = sh.getLastRow();
   var arr = (lastRow >= 2) ? sh.getRange(2, 1, lastRow - 1, numCols).getValues() : [];
@@ -265,12 +283,20 @@ function distributeToAgent_(fileId, matchedRows) {
       var wasInactive = (String(arr[j][stateColIndex]) === CONFIG_CLIENTSYNC.STATE_INACTIVE);
       if (!rowsEqual_(arr[j], newRow)) {
         sh.getRange(sheetRow, 1, 1, numCols).setValues([newRow]);
+        // ★ 復活時：文字色をConfigの「アクティブ文字色（黒）」に戻す
+        sh.getRange(sheetRow, pdfColIndex + 1).setFontColor(CONFIG_CLIENTSYNC.COLOR_TEXT_ACTIVE); 
         if (wasInactive) setRowBg_(sh, sheetRow, numCols, CONFIG_CLIENTSYNC.COLOR_ACTIVE);
         stats.updated++;
       }
     } else {
-      if (String(arr[j][stateColIndex]) !== CONFIG_CLIENTSYNC.STATE_INACTIVE) {
+      if (String(arr[j][stateColIndex]) !== CONFIG_CLIENTSYNC.STATE_INACTIVE) { 
         sh.getRange(sheetRow, stateColIndex + 1).setValue(CONFIG_CLIENTSYNC.STATE_INACTIVE);
+        
+        // ★ 対象外化：文字内容、文字色をすべてConfigから取得して制御
+        var pdfRange = sh.getRange(sheetRow, pdfColIndex + 1);
+        pdfRange.setValue(CONFIG_CLIENTSYNC.DEACTIVATED_PDF_TEXT)
+                .setFontColor(CONFIG_CLIENTSYNC.COLOR_TEXT_DEACTIVATED);
+        
         setRowBg_(sh, sheetRow, numCols, CONFIG_CLIENTSYNC.COLOR_INACTIVE);
         stats.deactivated++;
       }
@@ -306,7 +332,9 @@ function createOutputTab_(ss) {
 
 /** 出力1行を組む */
 function buildRow_(page, cells, state, soukyakuId) {
-  return [page, cells[0], cells[1], cells[2], cells[3], cells[4], cells[5], state, soukyakuId];
+  //return [page, cells[0], cells[1], cells[2], cells[3], cells[4], cells[5], state, soukyakuId];
+  // 👇【変更後】
+  return [page, cells[0], cells[1], cells[2], cells[3], cells[4], cells[5], cells[6], state, soukyakuId];
 }
 
 /** 2行の全セルを文字列比較 */
@@ -354,6 +382,7 @@ function buildMatchedByAgent_() {
       cells: [
         row[c.jobseekerId],
         row[c.jobseekerName],
+        agent,                // 👈【ココに追加！】
         row[c.agentStaff],
         row[c.amount],
         row[c.meetingDate],
@@ -397,11 +426,17 @@ function syncAllAgents() {
       if (!entry) { logs.push([agent, matched.length, '名寄せ失敗', '']); return; }
       var fileId = resolveOutputFileId_(entry);
       if (!fileId) { logs.push([agent, matched.length, '出力先未収集（共有メール収集が必要）', entry.seishiki]); return; }
+      // ーー 🛡️ ここから安全ガード（try-catch）を追加 ーー
       try {
+        // 先に権限があるかチェック（開けるか試す。権限がないとここで catch へ飛ぶ）
+        SpreadsheetApp.openById(fileId); 
+        
+        // 権限があれば実際の同期処理を実行
         var stats = distributeToAgent_(fileId, matched);
         props.setProperty('h_' + agent, hash);
         logs.push([agent, matched.length, '成功 追加' + stats.added + '/更新' + stats.updated + '/対象外化' + stats.deactivated, entry.seishiki]);
       } catch (e) {
+        // 権限エラーやその他のエラーが起きてもプログラムを止めず、ログに書いて次の会社へスキップ
         logs.push([agent, matched.length, 'エラー: ' + e.message, entry.seishiki]);
       }
     });
@@ -444,7 +479,9 @@ function onMasterEdit(e) {
       if (!isMatch_(row, c)) continue;
       matched.push({
         soukyakuId: String(row[c.soukyakuId]).trim(),
-        cells: [row[c.jobseekerId], row[c.jobseekerName], row[c.agentStaff], row[c.amount], row[c.meetingDate], row[c.pdf]]
+        //cells: [row[c.jobseekerId], row[c.jobseekerName], row[c.agentStaff], row[c.amount], row[c.meetingDate], row[c.pdf]]
+        // 👇【変更後】
+        cells: [row[c.jobseekerId], row[c.jobseekerName], agent, row[c.agentStaff], row[c.amount], row[c.meetingDate], row[c.pdf]]
       });
     }
 
@@ -585,7 +622,7 @@ function showOutputTabs() {
     try {
       var ss = SpreadsheetApp.openById(fileId);
       var tab = ss.getSheetByName(CONFIG_CLIENTSYNC.OUTPUT_TAB);
-      if (tab) { tab.showSheet(); done++; }
+      if (tab) { tab.showSheet();tab.setName("[新]進捗・面談実施シート"); done++; }
       else skipped++;
     } catch(e) { skipped++; }
   }

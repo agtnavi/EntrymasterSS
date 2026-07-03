@@ -218,7 +218,7 @@ function createRowFromF(row, rowIndex) {
     email,          // L
     age,            // M
     "",             // N: 性別
-    "未",             // O→LINE相談にカラム用途変更
+    "未",            // O用途変更に伴い
     finalRemarks,   // P
     "未",           // Q
     "未",           // R
