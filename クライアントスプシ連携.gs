@@ -1,4 +1,5 @@
 //https://gemini.google.com/app/c942a736af182446?hl=ja
+//20260715　LastRowの定義を修正
 //20260627　連携対象外化した時に、PDFリンクを消す処理を追加（今までなかったらしい）
 //20260626　連携対象にクライアント名を追加（インシデント対応）・権限なしスプシをスキップするように・collectOutputFileIds_関数をいったん止めた
 //20260626　F列型修正など
@@ -255,8 +256,16 @@ function distributeToAgent_(fileId, matchedRows) {
     throw new Error('OUTPUT_HEADERS の設定に必要な列（送客ID、状態、候補者情報PDF）が含まれていません。');
   }
 
-  var lastRow = sh.getLastRow();
-  var arr = (lastRow >= 2) ? sh.getRange(2, 1, lastRow - 1, numCols).getValues() : [];
+  // var lastRow = sh.getLastRow();
+  // var arr = (lastRow >= 2) ? sh.getRange(2, 1, lastRow - 1, numCols).getValues() : [];
+
+  // 送客ID列(J列)の実データ最終行を取得（他列のチェックボックス等の影響を排除）
+  var idColValues = sh.getRange(2, idColIndex + 1, Math.max(sh.getMaxRows() - 1, 1), 1).getValues();
+  var actualLastRow = 1;
+  for (var i = idColValues.length - 1; i >= 0; i--) {
+    if (String(idColValues[i][0]).trim() !== '') { actualLastRow = i + 2; break; }
+  }
+  var arr = (actualLastRow >= 2) ? sh.getRange(2, 1, actualLastRow - 1, numCols).getValues() : [];
 
   var idxBySid = {};
   var maxPage = 0;
