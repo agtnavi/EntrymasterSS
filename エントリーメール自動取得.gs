@@ -1,3 +1,4 @@
+//20260717 氏名・フリガナの末尾の「様」を除去する処理を追加
 //20260625 O列カラム用途変更の旨を記載
 //20260520 同じ処理回に同じメールが複数件あった時→1メールずつ処理する際、重複メールを処理しないようにそのタイミングで既読化
 //20260518 既読化先行によるデータロス対策: スプシ書込後に既読化・アーカイブする順序に変更
@@ -271,8 +272,11 @@ function extractAkahonData(message) {
   return [
     Utilities.formatDate(message.getDate(), "JST", "yyyy-MM-dd"),
     Utilities.formatDate(message.getDate(), "JST", "HH:mm"),
-    getVal(/■お名前：\s*([\s\S]+?)\r?\n/),
-    getVal(/■ふりがな：\s*([\s\S]+?)\r?\n/),
+    // getVal(/■お名前：\s*([\s\S]+?)\r?\n/),
+    // getVal(/■ふりがな：\s*([\s\S]+?)\r?\n/),
+    // 変更後
+    removeSama_(getVal(/■お名前：\s*([\s\S]+?)\r?\n/)),
+    removeSama_(getVal(/■ふりがな：\s*([\s\S]+?)\r?\n/)),
     rawPhone ? `=TEXT("${rawPhone}","0##########")` : "",
     getVal(/■メールアドレス：\s*(\S+)/),
     calculateAgeFromBirthday_(birthday),
@@ -304,8 +308,11 @@ function parseEmailBody(message, patterns) {
   return [
     Utilities.formatDate(message.getDate(), "JST", "yyyy-MM-dd"),
     Utilities.formatDate(message.getDate(), "JST", "HH:mm"),
-    getVal(patterns.name),
-    getVal(patterns.furi),
+    // getVal(patterns.name),
+    // getVal(patterns.furi),
+    // 変更後
+    removeSama_(getVal(patterns.name)),
+    removeSama_(getVal(patterns.furi)),
     rawPhone ? `=TEXT("${rawPhone}","0##########")` : "",
     getVal(/【\s*メールアドレス\s*】\s*(\S+)/),
     getVal(/【 年齢 】\s*(\S+)/).replace("歳", ""),
@@ -350,4 +357,12 @@ function toPlainText_(message) {
     .replace(/<\/p>/gi, "\n")
     .replace(/<[^>]+>/g, "")
     .replace(/&nbsp;/g, " ");
+}
+/**
+ * ★追加：氏名・フリガナの末尾にある「様」および直前のスペースを取り除く
+ */
+function removeSama_(str) {
+  if (!str) return "";
+  // 文字列の末尾にある「様」と、その直前の半角・全角スペースを除去
+  return str.replace(/[\s ]*様$/, "");
 }
