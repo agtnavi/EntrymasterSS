@@ -1,4 +1,6 @@
 //https://gemini.google.com/app/c942a736af182446?hl=ja
+//20260925 転記先スプシのTZがJST以外だと面談日時が16hズレる件を修正（toDestWallClock_ 追加・buildDestRow_ 経由で書き込み）
+//20260912 F列とG列のデータ型を修正。なんか間違っていた
 //20260715　LastRowの定義を修正
 //20260627　連携対象外化した時に、PDFリンクを消す処理を追加（今までなかったらしい）
 //20260626　連携対象にクライアント名を追加（インシデント対応）・権限なしスプシをスキップするように・collectOutputFileIds_関数をいったん止めた
@@ -240,17 +242,46 @@ function headerIndexMap_(header, colNameMap) {
 /* ============================================================
  * Distributor — 差分配信（1 AGTファイルへの書き込み）
  * ============================================================ */
+/** 基幹スプシの壁時計時刻を、転記先TZで同じ壁時計になるDateへ変換 */
+function toDestWallClock_(v, srcTz, destTz) {
+  if (!(v instanceof Date) || srcTz === destTz) return v;
+  var s = Utilities.formatDate(v, srcTz, 'yyyy/MM/dd HH:mm:ss');
+  return Utilities.parseDate(s, destTz, 'yyyy/MM/dd HH:mm:ss');
+}
+
+/** 基幹スプシの壁時計時刻を、転記先TZで同じ壁時計になるDateへ変換 */
+function toDestWallClock_(v, srcTz, destTz) {
+  if (!(v instanceof Date) || srcTz === destTz) return v;
+  var s = Utilities.formatDate(v, srcTz, 'yyyy/MM/dd HH:mm:ss');
+  return Utilities.parseDate(s, destTz, 'yyyy/MM/dd HH:mm:ss');
+}
 
 function distributeToAgent_(fileId, matchedRows) {
   var ss = SpreadsheetApp.openById(fileId);
   var sh = ss.getSheetByName(CONFIG_CLIENTSYNC.OUTPUT_TAB) || createOutputTab_(ss);
-  sh.getRange("F:F").setNumberFormat("yyyy/MM/dd HH:mm");
+
 
   var headers = CONFIG_CLIENTSYNC.OUTPUT_HEADERS;
   var numCols = headers.length;
   var idColIndex    = headers.indexOf('送客ID');
   var stateColIndex = headers.indexOf('状態');
   var pdfColIndex   = headers.indexOf('候補者情報PDF');
+
+  var amountCol = headers.indexOf('金額') + 1;
+  var dateIdx   = headers.indexOf('面談日時');  // 行配列の添字（0始まり）
+  var dateCol   = dateIdx + 1;                  // シート列番号（1始まり）
+  var rows = Math.max(sh.getMaxRows() - 1, 1);
+  if (amountCol > 0) sh.getRange(2, amountCol, rows, 1).setNumberFormat('#,##0');
+  if (dateCol   > 0) sh.getRange(2, dateCol,   rows, 1).setNumberFormat('yyyy/MM/dd HH:mm');
+
+  // 転記先TZがJST以外でも面談日時の壁時計を揃える（2026/09 Eight 16hズレ対応）
+  var srcTz  = SpreadsheetApp.getActive().getSpreadsheetTimeZone();
+  var destTz = ss.getSpreadsheetTimeZone();
+  function buildDestRow_(page, cells, state, sid) {
+    var r = buildRow_(page, cells, state, sid);
+    if (dateIdx >= 0) r[dateIdx] = toDestWallClock_(r[dateIdx], srcTz, destTz);
+    return r;
+  }
 
   if (idColIndex < 0 || stateColIndex < 0 || pdfColIndex < 0) {
     throw new Error('OUTPUT_HEADERS の設定に必要な列（送客ID、状態、候補者情報PDF）が含まれていません。');
@@ -288,24 +319,24 @@ function distributeToAgent_(fileId, matchedRows) {
     if (!sid2) continue;
 
     if (matchedSet[sid2]) {
-      var newRow = buildRow_(arr[j][0], matchedSet[sid2].cells, CONFIG_CLIENTSYNC.STATE_ACTIVE, sid2);
+      var newRow = buildDestRow_(arr[j][0], matchedSet[sid2].cells, CONFIG_CLIENTSYNC.STATE_ACTIVE, sid2);
       var wasInactive = (String(arr[j][stateColIndex]) === CONFIG_CLIENTSYNC.STATE_INACTIVE);
       if (!rowsEqual_(arr[j], newRow)) {
         sh.getRange(sheetRow, 1, 1, numCols).setValues([newRow]);
         // ★ 復活時：文字色をConfigの「アクティブ文字色（黒）」に戻す
-        sh.getRange(sheetRow, pdfColIndex + 1).setFontColor(CONFIG_CLIENTSYNC.COLOR_TEXT_ACTIVE); 
+        sh.getRange(sheetRow, pdfColIndex + 1).setFontColor(CONFIG_CLIENTSYNC.COLOR_TEXT_ACTIVE);
         if (wasInactive) setRowBg_(sh, sheetRow, numCols, CONFIG_CLIENTSYNC.COLOR_ACTIVE);
         stats.updated++;
       }
     } else {
-      if (String(arr[j][stateColIndex]) !== CONFIG_CLIENTSYNC.STATE_INACTIVE) { 
+      if (String(arr[j][stateColIndex]) !== CONFIG_CLIENTSYNC.STATE_INACTIVE) {
         sh.getRange(sheetRow, stateColIndex + 1).setValue(CONFIG_CLIENTSYNC.STATE_INACTIVE);
-        
+
         // ★ 対象外化：文字内容、文字色をすべてConfigから取得して制御
         var pdfRange = sh.getRange(sheetRow, pdfColIndex + 1);
         pdfRange.setValue(CONFIG_CLIENTSYNC.DEACTIVATED_PDF_TEXT)
                 .setFontColor(CONFIG_CLIENTSYNC.COLOR_TEXT_DEACTIVATED);
-        
+
         setRowBg_(sh, sheetRow, numCols, CONFIG_CLIENTSYNC.COLOR_INACTIVE);
         stats.deactivated++;
       }
@@ -317,7 +348,7 @@ function distributeToAgent_(fileId, matchedRows) {
   matchedRows.forEach(function(m){
     if (idxBySid.hasOwnProperty(m.soukyakuId)) return;
     maxPage++;
-    appends.push(buildRow_(maxPage, m.cells, CONFIG_CLIENTSYNC.STATE_ACTIVE, m.soukyakuId));
+    appends.push(buildDestRow_(maxPage, m.cells, CONFIG_CLIENTSYNC.STATE_ACTIVE, m.soukyakuId));
   });
   if (appends.length) {
     var startRow = arr.length + 2;
@@ -438,8 +469,8 @@ function syncAllAgents() {
       // ーー 🛡️ ここから安全ガード（try-catch）を追加 ーー
       try {
         // 先に権限があるかチェック（開けるか試す。権限がないとここで catch へ飛ぶ）
-        SpreadsheetApp.openById(fileId); 
-        
+        SpreadsheetApp.openById(fileId);
+
         // 権限があれば実際の同期処理を実行
         var stats = distributeToAgent_(fileId, matched);
         props.setProperty('h_' + agent, hash);
@@ -602,7 +633,7 @@ function hideOutputTabs() {
   var values = sh.getDataRange().getValues();
   var header = values[0];
   var idx = headerIndexMap_(header, CONFIG_CLIENTSYNC.AGT_COLS);
-  
+
   var done = 0, skipped = 0;
   for (var r = 1; r < values.length; r++) {
     var fileId = idx.fileId >= 0 ? String(values[r][idx.fileId] || '').trim() : '';
@@ -623,7 +654,7 @@ function showOutputTabs() {
   var values = sh.getDataRange().getValues();
   var header = values[0];
   var idx = headerIndexMap_(header, CONFIG_CLIENTSYNC.AGT_COLS);
-  
+
   var done = 0, skipped = 0;
   for (var r = 1; r < values.length; r++) {
     var fileId = idx.fileId >= 0 ? String(values[r][idx.fileId] || '').trim() : '';
